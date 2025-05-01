@@ -19,12 +19,13 @@ mongoose.connect(process.env.MONGO_URL)
 })
 
 app.post('/book',async(req,res)=>{
-    const {name,number,address,apdate,aptime}=req.body
+    const {name,number,service,address,apdate,aptime}=req.body
 try{
 const patient_info={
     name:name,
     ph_number: number,
     address: address,
+    service:service,
     appointment_date: apdate,
     appointment_time:aptime
 }

@@ -4,6 +4,7 @@ const AppointmentSchema = new mongoose.Schema({
   name:String,
   ph_number: Number,
   address: String,
+  service:String,
   appointment_date: String,
   appointment_time:String
 }, {
