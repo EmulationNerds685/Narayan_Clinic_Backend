@@ -6,7 +6,8 @@ const AppointmentSchema = new mongoose.Schema({
   address: String,
   service:String,
   appointment_date: String,
-  appointment_time:String
+  appointment_time:String,
+  patient_number: Number, 
 }, {
   timestamps: true // ✅ This enables both createdAt and updatedAt
 });

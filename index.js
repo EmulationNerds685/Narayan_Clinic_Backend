@@ -17,27 +17,35 @@ mongoose.connect(process.env.MONGO_URL)
 }).catch((err)=>{
     console.log("Error Connecting:",err)
 })
-
-app.post('/book',async(req,res)=>{
-    const {name,number,service,address,apdate,aptime}=req.body
-try{
-const patient_info={
-    name:name,
-    ph_number: number,
-    address: address,
-    service:service,
-    appointment_date: apdate,
-    appointment_time:aptime
-}
-const newPatient=new Appointments(patient_info)
-await newPatient.save()
-res.status(201).json({ message: "Post saved to MongoDB!" });
-        
-}catch(err){
-    res.status(500).json({ message: "Failed to save post", err });
-}
-
+app.get('/',(req,res)=>{
+    res.send("Hello")
 })
+app.post('/book', async (req, res) => {
+    const { name, phoneNumber, service, address, appointmentDate, timeSlot } = req.body;
+  
+    try {
+      // Count existing patients
+      const count = await Appointments.countDocuments();
+  
+      const patient_info = {
+        name: name,
+        ph_number: phoneNumber,
+        address: address,
+        service: service,
+        appointment_date: appointmentDate,
+        appointment_time: timeSlot,
+        patient_number: count + 1, // Set the next patient number
+      };
+  
+      const newPatient = new Appointments(patient_info);
+      await newPatient.save();
+  
+      res.status(201).json({ message: "Post saved to MongoDB!" });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to save post", err });
+    }
+  });
+  
 
 app.get('/appointments',async(req,res)=>{
     try{
