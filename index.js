@@ -40,7 +40,7 @@ app.post('/book', async (req, res) => {
       const newPatient = new Appointments(patient_info);
       await newPatient.save();
   
-      res.status(201).json({ message: "Post saved to MongoDB!" });
+      res.status(201).json({ message: "Appointment Booked Successfully! " });
     } catch (err) {
       res.status(500).json({ message: "Failed to save post", err });
     }
