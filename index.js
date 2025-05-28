@@ -93,7 +93,14 @@ res.json(patients)
         res.json({err})
     }
 })
-
+app.post('/contact',(req,res)=>{
+console.log(req.body)
+res.json({message:"Thanks for contacting"})
+})
+app.post('/feedback',(req,res)=>{
+console.log(req.body)
+res.sendStatus(200).json({message:"Thanks for your feedback"})
+})
 app.listen(port,()=>{
     console.log(`Server is listening on port:${port}`)
 })
