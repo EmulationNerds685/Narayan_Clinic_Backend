@@ -2,15 +2,23 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import { Resend } from 'resend';
-import mongoose from 'mongoose'
+import mongoose from 'mongoose';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
+import bcrypt from 'bcrypt';
+import Admin from './models/admin.js';
 import Appointments from './models/appointment.js'
 dotenv.config()
 
 const app=express()
 const port=process.env.PORT
-app.use(cors())
+app.use(cors({
+  origin: 'http://localhost:5173', // your frontend origin
+  credentials: true
+}));
 app.use(express.json())
 const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 
 mongoose.connect(process.env.MONGO_URL)
@@ -19,6 +27,33 @@ mongoose.connect(process.env.MONGO_URL)
 }).catch((err)=>{
     console.log("Error Connecting:",err)
 })
+
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URL,
+    collectionName: 'sessions',
+    ttl: 60 * 60
+  }),
+  cookie: {
+    maxAge: 1000 * 60 * 60, // 1 hour
+    httpOnly: true,
+    secure: false, // set to true in production (HTTPS)
+    sameSite: 'lax'
+  }
+}));
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.adminId) {
+    return next();
+  }
+  return res.status(401).json({ message: 'Unauthorized: Admin login required' });
+}
+
+
 async function sendConfirmationEmail(to, name, appointmentDate,timeSlot,service) {
   try {
     await resend.emails.send({
@@ -47,6 +82,30 @@ html: `
     throw error;
   }
 }
+
+
+
+app.post('/admin/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await admin.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    req.session.adminId = admin._id;
+    res.json({ message: 'Logged in successfully' });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 
 app.get('/',(req,res)=>{
@@ -84,22 +143,57 @@ app.post('/book', async (req, res) => {
   });
   
 
-app.get('/appointments',async(req,res)=>{
-    try{
-const patients=await Appointments.find().sort({createdAt:-1})
-res.json(patients)
-    }catch(err){
-        console.log(err)
-        res.json({err})
+app.get('/appointments', requireAdmin, async (req, res) => {
+  try {
+    const patients = await Appointments.find().sort({ createdAt: -1 });
+    res.json(patients);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: 'Failed to fetch appointments' });
+  }
+});
+
+app.post('/admin/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).json({ message: 'Logout failed' });
     }
-})
+    res.clearCookie('connect.sid'); // or whatever cookie name you use
+    res.json({ message: 'Logged out successfully' });
+  });
+});
+/*
+app.post('/admin/create', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const existing = await Admin.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Admin already exists' });
+
+    const newAdmin = new Admin({ email, password }); // password will be hashed automatically
+    await newAdmin.save();
+    res.status(201).json({ message: 'Admin created successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error creating admin' });
+  }
+});
+*/
+app.get('/admin/check', (req, res) => {
+  if (req.session && req.session.adminId) {
+    return res.json({ loggedIn: true });
+  }
+  res.json({ loggedIn: false });
+});
+
+
 app.post('/contact',(req,res)=>{
 console.log(req.body)
 res.json({message:"Thanks for contacting"})
 })
 app.post('/feedback',(req,res)=>{
 console.log(req.body)
-res.sendStatus(200).json({message:"Thanks for your feedback"})
+res.status(200).json({ message: "Thanks for your feedback" });
+
 })
 app.listen(port,()=>{
     console.log(`Server is listening on port:${port}`)
