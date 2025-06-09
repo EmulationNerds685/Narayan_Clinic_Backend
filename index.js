@@ -12,6 +12,9 @@ dotenv.config()
 
 const app=express()
 const port=process.env.PORT
+
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: process.env.FRONTEND_URL, // your frontend origin
   credentials: true
