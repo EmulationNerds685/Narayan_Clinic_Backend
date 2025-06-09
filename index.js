@@ -14,11 +14,22 @@ const app=express()
 const port=process.env.PORT
 
 app.set('trust proxy', 1);
+const allowedOrigins = [
+  process.env.CLINIC_FRONTEND_URL,
+  process.env.ADMIN_FRONTEND_URL
+];
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // your frontend origin
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
 app.use(express.json())
 const resend = new Resend(process.env.RESEND_API_KEY);
 
