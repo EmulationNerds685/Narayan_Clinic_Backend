@@ -10,8 +10,8 @@ import Admin from './models/admin.js';
 import Appointments from './models/appointment.js'
 dotenv.config()
 
-const app=express()
-const port=process.env.PORT
+const app = express()
+const port = process.env.PORT
 
 app.set('trust proxy', 1);
 const allowedOrigins = [
@@ -36,11 +36,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 mongoose.connect(process.env.MONGO_URL)
-.then(()=>{
+  .then(() => {
     console.log("Connected to Mongo")
-}).catch((err)=>{
-    console.log("Error Connecting:",err)
-})
+  }).catch((err) => {
+    console.log("Error Connecting:", err)
+  })
 
 
 app.use(session({
@@ -68,13 +68,13 @@ function requireAdmin(req, res, next) {
 }
 
 
-async function sendConfirmationEmail(to, name, appointmentDate,timeSlot,service) {
+async function sendConfirmationEmail(to, name, appointmentDate, timeSlot, service) {
   try {
     await resend.emails.send({
       from: 'Appointments@narayanheartandmaternitycentre.com', // your verified domain
-      to:`${to}`,
+      to: `${to}`,
       subject: 'Appointment Confirmation',
-html: `
+      html: `
   <p>Dear ${name},</p>
   <p>Thank you for choosing <strong>Narayan Heart & Maternity Centre</strong>.</p>
   <p>We are pleased to confirm your appointment as per the following details:</p>
@@ -89,7 +89,7 @@ html: `
   Narayan Heart & Maternity Centre<br/>
   <a href="https://narayanheartandmaternitycentre.com">narayanheartandmaternitycentre.com</a></p>
 `
-,
+      ,
     });
   } catch (error) {
     console.error('❌ Email error:', error);
@@ -122,40 +122,40 @@ app.post('/admin/login', async (req, res) => {
 });
 
 
-app.get('/',(req,res)=>{
-    res.send("Hello")
+app.get('/', (req, res) => {
+  res.send("Hello")
 })
 app.post('/book', async (req, res) => {
-    const { name,email, phoneNumber, service, address, appointmentDate, timeSlot } = req.body;
-  
+  const { name, email, phoneNumber, service, address, appointmentDate, timeSlot } = req.body;
+
+  try {
+    // Count existing patients
+    const count = await Appointments.countDocuments();
+
+    const patient_info = {
+      name: name,
+      email: email,
+      ph_number: phoneNumber,
+      address: address,
+      service: service,
+      appointment_date: appointmentDate,
+      appointment_time: timeSlot,
+      patient_number: count + 1, // Set the next patient number
+    };
+
+    const newPatient = new Appointments(patient_info);
+    await newPatient.save();
     try {
-      // Count existing patients
-      const count = await Appointments.countDocuments();
-  
-      const patient_info = {
-        name: name,
-        email:email,
-        ph_number: phoneNumber,
-        address: address,
-        service: service,
-        appointment_date: appointmentDate,
-        appointment_time: timeSlot,
-        patient_number: count + 1, // Set the next patient number
-      };
-  
-      const newPatient = new Appointments(patient_info);
-      await newPatient.save();
-   try {
-  await sendConfirmationEmail(email, name, appointmentDate,timeSlot,service);
-} catch (emailErr) {
-  console.error("Failed to send email, but booking saved.");
-}
-      res.status(201).json({ message: "Appointment Booked Successfully! You'll receive the confirmation Email shortly. " });
-    } catch (err) {
-      res.status(500).json({ message: "Failed to save post", err });
+      await sendConfirmationEmail(email, name, appointmentDate, timeSlot, service);
+    } catch (emailErr) {
+      console.error("Failed to send email, but booking saved.");
     }
-  });
-  
+    res.status(201).json({ message: "Appointment Booked Successfully! You'll receive the confirmation Email shortly. " });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to save post", err });
+  }
+});
+
 
 app.get('/appointments', requireAdmin, async (req, res) => {
   try {
@@ -192,6 +192,39 @@ app.post('/admin/create', async (req, res) => {
   }
 });
 */
+
+app.put('/admin/update', async (req, res) => {
+  const { currentEmail, newEmail, newPassword } = req.body;
+
+  try {
+    const admin = await Admin.findOne({ email: currentEmail });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    // Optional: check if new email is already taken
+    if (newEmail && newEmail !== currentEmail) {
+      const emailTaken = await Admin.findOne({ email: newEmail });
+      if (emailTaken) {
+        return res.status(400).json({ message: 'New email already in use' });
+      }
+      admin.email = newEmail;
+    }
+
+    // Update password if provided
+    if (newPassword) {
+      admin.password = newPassword; // will be hashed by pre-save hook
+    }
+
+    await admin.save();
+
+    res.json({ message: 'Credentials updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error updating credentials' });
+  }
+});
+
 app.get('/admin/check', (req, res) => {
   if (req.session && req.session.adminId) {
     return res.json({ loggedIn: true });
@@ -200,15 +233,15 @@ app.get('/admin/check', (req, res) => {
 });
 
 
-app.post('/contact',(req,res)=>{
-console.log(req.body)
-res.json({message:"Thanks for contacting"})
+app.post('/contact', (req, res) => {
+  console.log(req.body)
+  res.json({ message: "Thanks for contacting" })
 })
-app.post('/feedback',(req,res)=>{
-console.log(req.body)
-res.status(200).json({ message: "Thanks for your feedback" });
+app.post('/feedback', (req, res) => {
+  console.log(req.body)
+  res.status(200).json({ message: "Thanks for your feedback" });
 
 })
-app.listen(port,()=>{
-    console.log(`Server is listening on port:${port}`)
+app.listen(port, () => {
+  console.log(`Server is listening on port:${port}`)
 })
