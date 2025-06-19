@@ -8,6 +8,7 @@ import MongoStore from 'connect-mongo';
 import bcrypt from 'bcrypt';
 import Admin from './models/admin.js';
 import Appointments from './models/appointment.js'
+import Otp from './models/otp.js';
 dotenv.config()
 
 const app = express()
@@ -33,7 +34,9 @@ app.use(cors({
 app.use(express.json())
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-
+function generateOtp() {
+  return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+}
 
 mongoose.connect(process.env.MONGO_URL)
   .then(() => {
@@ -118,6 +121,60 @@ app.post('/admin/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+ 
+app.post('/send-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  const otp = generateOtp();
+
+  try {
+    // Save or update OTP in DB with 5 minutes expiry
+    await Otp.findOneAndUpdate(
+      { email },
+      { email, otp, expiresAt: new Date(Date.now() + 5 * 60000) },
+      { upsert: true, new: true }
+    );
+
+    await resend.emails.send({
+      from: 'verify@narayanheartandmaternitycentre.com',
+      to: email,
+      subject: 'Your OTP for Email Verification',
+      html: `<p>Your OTP is <strong>${otp}</strong>. It is valid for 5 minutes.</p>`
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("❌ OTP Send Error:", error);
+    res.status(500).json({ error: "Failed to send OTP" });
+  }
+});
+
+app.post('/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ error: "Email and OTP are required" });
+
+  try {
+    const record = await Otp.findOne({ email, otp });
+
+    if (!record) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await Otp.deleteOne({ email });
+      return res.status(400).json({ error: "OTP expired" });
+    }
+
+    await Otp.deleteOne({ email }); // clean up after success
+
+    res.json({ message: "OTP verified successfully" });
+  } catch (err) {
+    console.error("❌ OTP verification error:", err);
+    res.status(500).json({ error: "Server error during OTP verification" });
   }
 });
 
