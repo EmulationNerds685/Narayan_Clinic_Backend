@@ -1,30 +1,24 @@
-// src/server.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import connectDB from './config/db.js';
-
-// Import routes
 import adminRoutes from './routes/adminRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
-
-// --- INITIAL SETUP ---
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
-
-// --- DATABASE CONNECTION ---
 connectDB();
-
-// --- MIDDLEWARE ---
 app.set('trust proxy', 1);
 const allowedOrigins = [
   process.env.CLINIC_FRONTEND_URL,
   process.env.ADMIN_FRONTEND_URL
 ];
+
+
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -36,8 +30,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-
-// --- SESSION MANAGEMENT ---
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
@@ -45,22 +37,23 @@ app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URL,
     collectionName: 'sessions',
-    ttl: 60 * 60 // 1 hour
+    ttl: 60 * 60
   }),
   cookie: {
-    maxAge: 1000 * 60 * 60, // 1 hour
+    maxAge: 1000 * 60 * 60,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'none'
   }
 }));
 
-// --- API ROUTES ---
+app.get('/', (req, res) => {
+  res.status(200).json({ message: "Server is awake and running!" });
+});
+
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/otp', otpRoutes);
-
-// --- START SERVER ---
 app.listen(port, () => {
   console.log(`Server is listening on port: ${port}`);
 });
