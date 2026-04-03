@@ -1,116 +1,122 @@
 import Admin from '../models/admin.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 /**
  * @desc    Logs in an admin user
  * @route   POST /api/admin/login
  * @access  Public
  */
-export const loginAdmin = async (req, res) => {
-  const { email, password } = req.body;
+export const loginAdmin = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
 
-  try {
     const admin = await Admin.findOne({ email });
     if (!admin) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+        throw new ApiError(401, "Invalid email or password");
     }
 
     const isMatch = await admin.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+        throw new ApiError(401, "Invalid email or password");
     }
 
     // Set the admin ID in the session
     req.session.adminId = admin._id;
-    res.json({ message: 'Logged in successfully' });
-  } catch (err) {
-    console.error('Admin login error:', err);
-    res.status(500).json({ message: 'Server error during login' });
-  }
-};
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { email: admin.email }, "Logged in successfully"));
+});
 
 /**
  * @desc    Logs out the current admin user
  * @route   POST /api/admin/logout
  * @access  Private
  */
-export const logoutAdmin = (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      console.error('Admin logout error:', err);
-      return res.status(500).json({ message: 'Logout failed' });
-    }
-    // Clear the session cookie
-    res.clearCookie('connect.sid');
-    res.json({ message: 'Logged out successfully' });
-  });
-};
+export const logoutAdmin = asyncHandler(async (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            throw new ApiError(500, "Logout failed");
+        }
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
+        return res
+            .status(200)
+            .json(new ApiResponse(200, null, "Logged out successfully"));
+    });
+});
 
 /**
  * @desc    Updates admin credentials (email/password)
  * @route   PUT /api/admin/update
- * @access  Private (should be protected by requireAdmin middleware)
+ * @access  Private
  */
-export const updateAdminCredentials = async (req, res) => {
-  const { currentEmail, newEmail, newPassword } = req.body;
+export const updateAdminCredentials = asyncHandler(async (req, res) => {
+    const { currentEmail, newEmail, newPassword } = req.body;
 
-  try {
     const admin = await Admin.findOne({ email: currentEmail });
     if (!admin) {
-      return res.status(404).json({ message: 'Admin not found' });
+        throw new ApiError(404, "Admin not found");
     }
 
     // If new email is provided, check if it's already in use
     if (newEmail && newEmail !== currentEmail) {
-      const emailTaken = await Admin.findOne({ email: newEmail });
-      if (emailTaken) {
-        return res.status(400).json({ message: 'New email already in use' });
-      }
-      admin.email = newEmail;
+        const emailTaken = await Admin.findOne({ email: newEmail });
+        if (emailTaken) {
+            throw new ApiError(400, "New email already in use");
+        }
+        admin.email = newEmail;
     }
 
     // If new password is provided, update it (it will be hashed by the pre-save hook)
     if (newPassword) {
-      admin.password = newPassword;
+        admin.password = newPassword;
     }
 
     await admin.save();
-    res.json({ message: 'Credentials updated successfully' });
-  } catch (err) {
-    console.error('Error updating admin credentials:', err);
-    res.status(500).json({ message: 'Error updating credentials' });
-  }
-};
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { email: admin.email }, "Credentials updated successfully"));
+});
 
 /**
  * @desc    Checks if an admin session is active
  * @route   GET /api/admin/check
  * @access  Public
  */
-export const checkAuthStatus = (req, res) => {
-  if (req.session && req.session.adminId) {
-    return res.json({ loggedIn: true });
-  }
-  res.json({ loggedIn: false });
-};
+export const checkAuthStatus = asyncHandler(async (req, res) => {
+    if (req.session && req.session.adminId) {
+        return res
+            .status(200)
+            .json(new ApiResponse(200, { loggedIn: true }, "Admin session active"));
+    }
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { loggedIn: false }, "Admin session inactive"));
+});
 
 /**
- * @desc    Creates a new admin (from your commented-out code)
+ * @desc    Creates a new admin
  * @route   POST /api/admin/create
- * @access  Private (should be protected or used for initial setup only)
+ * @access  Private
  */
-export const createAdmin = async (req, res) => {
-  const { email, password } = req.body;
-  try {
+export const createAdmin = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
-      return res.status(400).json({ message: 'Admin with this email already exists' });
+        throw new ApiError(400, "Admin with this email already exists");
     }
 
-    const newAdmin = new Admin({ email, password }); // Password will be hashed by the model's pre-save hook
-    await newAdmin.save();
-    res.status(201).json({ message: 'Admin created successfully' });
-  } catch (err) {
-    console.error('Error creating admin:', err);
-    res.status(500).json({ message: 'Error creating admin' });
-  }
-};
+    const newAdmin = await Admin.create({ email, password });
+
+    if (!newAdmin) {
+        throw new ApiError(500, "Error creating admin");
+    }
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, { email: newAdmin.email }, "Admin created successfully"));
+});

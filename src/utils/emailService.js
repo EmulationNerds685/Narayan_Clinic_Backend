@@ -1,11 +1,22 @@
-// src/utils/emailService.js
 import { Resend } from 'resend';
-import dotenv from 'dotenv';
 
-dotenv.config();
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) {
+    console.error("❌ RESEND_API_KEY is not defined in environment variables");
+    return null;
+  }
+  return new Resend(process.env.RESEND_API_KEY);
+};
+
+// Initialize resend only when needed or at least check key
+const resend = getResendClient();
+
 
 export async function sendConfirmationEmail(to, name, appointmentDate, timeSlot, service) {
+  if (!resend) {
+    console.error("❌ Email client not initialized. Check your RESEND_API_KEY.");
+    return;
+  }
   try {
     await resend.emails.send({
       from: 'Appointments@narayanheartandmaternitycentre.com',
@@ -30,6 +41,10 @@ export async function sendConfirmationEmail(to, name, appointmentDate, timeSlot,
 }
 
 export async function sendOtpEmail(to, otp) {
+  if (!resend) {
+    console.error("❌ Email client not initialized. Check your RESEND_API_KEY.");
+    return;
+  }
   try {
     await resend.emails.send({
       from: 'verify@narayanheartandmaternitycentre.com',
@@ -41,4 +56,4 @@ export async function sendOtpEmail(to, otp) {
     console.error("❌ OTP Email Send Error:", error);
     throw error;
   }
-}
+}

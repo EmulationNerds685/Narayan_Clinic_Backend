@@ -1,23 +1,25 @@
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import connectDB from './config/db.js';
 import adminRoutes from './routes/adminRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
-dotenv.config();
+import shortsRoutes from './routes/shortsRoutes.js';
+import { errorHandler } from './middleware/errorMiddleware.js';
+
 const app = express();
+
 const port = process.env.PORT || 5000;
 connectDB();
 app.set('trust proxy', 1);
+
 const allowedOrigins = [
   process.env.CLINIC_FRONTEND_URL,
   process.env.ADMIN_FRONTEND_URL
 ];
-
-
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -29,6 +31,7 @@ app.use(cors({
   },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET,
@@ -54,6 +57,11 @@ app.get('/', (req, res) => {
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/otp', otpRoutes);
+app.use('/api/shorts', shortsRoutes);
+
+// Global Error Handler
+app.use(errorHandler);
+
 app.listen(port, () => {
   console.log(`Server is listening on port: ${port}`);
-});
+});

@@ -1,40 +1,57 @@
-// src/controllers/otpController.js
 import Otp from '../models/otp.js';
 import { generateOtp } from '../utils/otpHelper.js';
 import { sendOtpEmail } from '../utils/emailService.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
-export const sendOtp = async (req, res) => {
+/**
+ * @desc    Sends OTP for email verification
+ * @route   POST /api/otp/send
+ * @access  Public
+ */
+export const sendOTP = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
 
   const otp = generateOtp();
 
-  try {
-    await Otp.findOneAndUpdate(
-      { email },
-      { email, otp, expiresAt: new Date(Date.now() + 5 * 60000) }, // 5 minutes expiry
-      { upsert: true, new: true }
-    );
-    await sendOtpEmail(email, otp);
-    res.json({ message: "OTP sent successfully" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to send OTP" });
-  }
-};
+  const record = await Otp.findOneAndUpdate(
+    { email },
+    { email, otp, expiresAt: new Date(Date.now() + 5 * 60000) }, // 5 minutes expiry
+    { upsert: true, new: true }
+  );
 
-export const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) return res.status(400).json({ error: "Email and OTP are required" });
-  try {
-    const record = await Otp.findOne({ email, otp });
-    if (!record || record.expiresAt < new Date()) {
-      await Otp.deleteOne({ email }); // Clean up expired or invalid attempts
-      return res.status(400).json({ error: record ? "OTP expired" : "Invalid OTP" });
-    }
-    await Otp.deleteOne({ email }); // Clean up after success
-    res.json({ message: "OTP verified successfully" });
-  } catch (err) {
-    console.error("❌ OTP verification error:", err);
-    res.status(500).json({ error: "Server error during OTP verification" });
+  if (!record) {
+    throw new ApiError(500, "Failed to create OTP record");
   }
-};
+
+  await sendOtpEmail(email, otp);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "OTP sent successfully"));
+});
+
+/**
+ * @desc    Verifies the email OTP
+ * @route   POST /api/otp/verify
+ * @access  Public
+ */
+export const verifyOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  const record = await Otp.findOne({ email, otp });
+
+  if (!record || record.expiresAt < new Date()) {
+    if (record) {
+      await Otp.deleteOne({ email }); // Clean up expired record
+    }
+    throw new ApiError(400, record ? "OTP expired" : "Invalid OTP");
+  }
+
+  await Otp.deleteOne({ email }); // Clean up after success
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "OTP verified successfully"));
+});
