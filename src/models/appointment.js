@@ -9,6 +9,11 @@ const AppointmentSchema = new mongoose.Schema({
   appointment_date: String,
   appointment_time:String,
   patient_number: Number, 
+  status: {
+    type: String,
+    enum: ['Pending', 'Confirmed', 'Cancelled', 'Completed'],
+    default: 'Pending'
+  }
 }, {
   timestamps: true // ✅ This enables both createdAt and updatedAt
 });

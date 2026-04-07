@@ -56,4 +56,32 @@ export async function sendOtpEmail(to, otp) {
     console.error("❌ OTP Email Send Error:", error);
     throw error;
   }
-}
+}
+
+export async function sendClinicNotificationEmail(patientName, appointmentDate, timeSlot, service, phone) {
+  if (!resend) {
+    console.error("❌ Email client not initialized. Check your RESEND_API_KEY.");
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: 'Notifications@narayanheartandmaternitycentre.com',
+      to: 'narayanheartmaternitycentre@gmail.com',
+      subject: `New Appointment: ${patientName}`,
+      html: `
+        <h3>New Appointment Booked</h3>
+        <p>A new appointment has been scheduled at the clinic.</p>
+        <ul>
+          <li><strong>Patient:</strong> ${patientName}</li>
+          <li><strong>Phone:</strong> ${phone}</li>
+          <li><strong>Date:</strong> ${appointmentDate}</li>
+          <li><strong>Time:</strong> ${timeSlot}</li>
+          <li><strong>Service:</strong> ${service}</li>
+        </ul>
+        <p>Please check the admin panel for more details.</p>
+      `,
+    });
+  } catch (error) {
+    console.error('❌ Clinic Notification Email error:', error);
+  }
+}

@@ -120,3 +120,40 @@ export const createAdmin = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, { email: newAdmin.email }, "Admin created successfully"));
 });
+
+/**
+ * @desc    Retrieves all admin users
+ * @route   GET /api/admin/
+ * @access  Private (Admin)
+ */
+export const getAllAdmins = asyncHandler(async (req, res) => {
+    const admins = await Admin.find({}, '-password'); // Exclude password
+    return res
+        .status(200)
+        .json(new ApiResponse(200, admins, "Admins fetched successfully"));
+});
+
+/**
+ * @desc    Deletes an admin user
+ * @route   DELETE /api/admin/:id
+ * @access  Private (Admin)
+ */
+export const deleteAdmin = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Prevent deleting the last admin
+    const adminCount = await Admin.countDocuments();
+    if (adminCount <= 1) {
+        throw new ApiError(400, "Cannot delete the only administrative account");
+    }
+
+    const admin = await Admin.findByIdAndDelete(id);
+
+    if (!admin) {
+        throw new ApiError(404, "Admin not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Admin deleted successfully"));
+});
