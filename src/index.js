@@ -8,6 +8,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
 import shortsRoutes from './routes/shortsRoutes.js';
+import feedbackRoutes from './routes/feedbackRoutes.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 
 const app = express();
@@ -58,6 +59,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/shorts', shortsRoutes);
+app.use('/api/feedback-contact', feedbackRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
